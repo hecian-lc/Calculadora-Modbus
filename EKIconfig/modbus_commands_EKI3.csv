@@ -1,0 +1,8 @@
+name,mode,ip,port,serialport,unitid,funccode,trigger,scantime,endianswap,readreg,readqty,writereg,writeqty,datatypeset,iomap,timeout,io_disconnect,safe_value,doubles
+EKI-3-FER-I,TCP Master,192.168.1.10,502,,255,3,Cyclic,5000,None,3000,8,,,uint16,1,10000,,,
+EKI-3-FER-Iavg,TCP Master,192.168.1.10,502,,255,3,Cyclic,5000,None,3010,2,,,uint16,1,10000,,,
+EKI-3-FER-V,TCP Master,192.168.1.10,502,,255,3,Cyclic,5000,None,3020,14,,,uint16,1,10000,,,
+EKI-3-FER-Vln_avg,TCP Master,192.168.1.10,502,,255,3,Cyclic,5000,None,3036,2,,,uint16,1,10000,,,
+EKI-3-FER-P,TCP Master,192.168.1.10,502,,255,3,Cyclic,5000,None,3054,8,,,uint16,1,10000,,,
+EKI-3-FER-FP,TCP Master,192.168.1.10,502,,255,3,Cyclic,5000,None,3078,8,,,uint16,1,10000,,,
+EKI-3-FER-Fr,TCP Master,192.168.1.10,502,,255,3,Cyclic,5000,None,3110,2,,,uint16,1,10000,,,

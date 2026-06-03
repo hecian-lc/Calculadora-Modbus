@@ -1,0 +1,11 @@
+name,mode,ip,port,serialport,unitid,funccode,trigger,scantime,endianswap,readreg,readqty,writereg,writeqty,datatypeset,iomap,timeout,io_disconnect,safe_value,doubles
+EKI-13-Proceso-T300-I,Serial Master,,,1,1,3,Cyclic,5000,None,32028,8,,,uint16,1,10000,,,
+EKI-13-Proceso-T300-V_Fr,Serial Master,,,1,1,3,Cyclic,5000,None,32056,14,,,uint16,1,10000,,,
+EKI-13-Proceso-T300-P,Serial Master,,,1,1,3,Cyclic,5000,None,32072,8,,,uint16,1,10000,,,
+EKI-13-Proceso-T300-Avg,Serial Master,,,1,1,3,Cyclic,5000,None,32132,6,,,uint16,1,10000,,,
+EKI-13-Proceso-T300-FP,Serial Master,,,1,1,3,Cyclic,5000,None,32206,8,,,uint16,1,10000,,,
+EKI-13-Proceso-T500-I,Serial Master,,,1,2,3,Cyclic,5000,None,32028,8,,,uint16,1,10000,,,
+EKI-13-Proceso-T500-V_Fr,Serial Master,,,1,2,3,Cyclic,5000,None,32056,14,,,uint16,1,10000,,,
+EKI-13-Proceso-T500-P,Serial Master,,,1,2,3,Cyclic,5000,None,32072,8,,,uint16,1,10000,,,
+EKI-13-Proceso-T500-Avg,Serial Master,,,1,2,3,Cyclic,5000,None,32132,6,,,uint16,1,10000,,,
+EKI-13-Proceso-T500-FP,Serial Master,,,1,2,3,Cyclic,5000,None,32206,8,,,uint16,1,10000,,,

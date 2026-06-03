@@ -1,0 +1,32 @@
+# ─── Python ──────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+env/
+
+# ─── PyInstaller ─────────────────────────────────────────────────────────────
+build/
+dist/
+*.manifest
+
+# ─── Runtime / generado ──────────────────────────────────────────────────────
+# web_config.json se genera en el primer arranque a partir de Ekis.xlsx.
+# Se versiona un ejemplo, pero el de runtime local no debería commitearse.
+/web_config.json
+
+# ─── Salidas de la app ───────────────────────────────────────────────────────
+Registros_Leidos.xlsx
+
+# ─── Claude Code (config local de la máquina) ────────────────────────────────
+.claude/
+
+# ─── IDE / SO ────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+desktop.ini
