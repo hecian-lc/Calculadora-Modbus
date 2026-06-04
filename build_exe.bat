@@ -18,9 +18,7 @@ python -m PyInstaller ^
   --onefile ^
   --noconsole ^
   --name "Calculadora Modbus EKi" ^
-  --add-data "data\PM51xx_PM53xx_PMC Register List_v2011_v2021_R01.xls;data" ^
-  --add-data "data\Public_PM2xxx_PMC Register List_v1001.xls;data" ^
-  --add-data "data\9AKK107492A7627_en_F_M4M Modbus map.xlsx;data" ^
+  --add-data "data\regmaps.json;data" ^
   --add-data "Ekis.xlsx;." ^
   --add-data "EKIconfig;EKIconfig" ^
   --hidden-import flask ^

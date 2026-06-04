@@ -17,13 +17,17 @@ Tiene dos frontends sobre el mismo motor de decodificación:
 ├── main.py            App de escritorio (PyQt6): decodifica capturas CSV
 ├── web_server.py      Dashboard web (Flask) con polling Modbus TCP en vivo
 ├── modbus.py          Motor: parse_csv, pair_frames, decode_frame, word_swap
-├── regmaps.py         Mapas de registros por medidor (hardcodeados + .xls)
+├── regmaps.py         Resolución de mapas de registros por medidor
 ├── eki_config.py      Lectura compartida de Ekis.xlsx (escritorio + web)
 ├── Ekis.xlsx          Configuración de dispositivos (nombre, IP, medidor, addr, qty)
 ├── EKIconfig/         CSVs de comandos Modbus exportados por EKi
 ├── capture.csv        Captura de ejemplo para la app de escritorio
-├── data/              Mapas de registros de fabricante (.xls/.xlsx) — datos en runtime
+├── data/
+│   ├── regmaps.json   Mapa de registros unificado (FUENTE en runtime)
+│   └── *.xls/.xlsx    Mapas de fabricante (fuente para regenerar regmaps.json)
 ├── docs/              Manuales PDF de los medidores (referencia, no se usan en runtime)
+├── tools/
+│   └── generate_regmaps.py  Regenera data/regmaps.json desde los loaders
 ├── tests/             Tests con pytest
 ├── requirements.txt       Dependencias de la app de escritorio
 ├── requirements_web.txt   Dependencias del servidor web
@@ -69,16 +73,31 @@ Genera `dist/Calculadora Modbus EKi.exe` (onefile). Los mapas de `data/`,
 `Ekis.xlsx` y `EKIconfig/` quedan embebidos. Para usar otra configuración en la
 PC destino, coloca un `Ekis.xlsx` junto al `.exe`.
 
-## Medidores soportados
+## Mapas de registros
 
-| Medidor                         | Origen del mapa de registros        |
-|---------------------------------|-------------------------------------|
-| Siemens SMART 7KT0310           | hardcodeado (`regmaps.py`)          |
-| Carlo Gavazzi WM20/WM30/WM40    | hardcodeado (`regmaps.py`)          |
-| Schneider NSX / Micrologic LV434000 | hardcodeado (`regmaps.py`)      |
-| Schneider PM51xx / PM53xx       | `data/PM51xx_…xls`                  |
-| Schneider PM2xxx                | `data/Public_PM2xxx_…xls`           |
-| ABB M4M 30/32                   | `data/9AKK…M4M Modbus map.xlsx`     |
+En runtime, **todos** los medidores se sirven desde un único mapa unificado:
+`data/regmaps.json` (`{medidor: {registro: [nombre, unidad, tipo, categoría]}}`).
+`regmaps.get_reg_map` resuelve el alias del medidor a su id canónico y busca en
+ese JSON; si faltara, recurre al loader original como fallback.
+
+El JSON se **genera** (no se escribe a mano) desde las fuentes originales —
+dicts hardcodeados y los `.xls/.xlsx` de fabricante en `data/`:
+
+```bat
+python tools/generate_regmaps.py
+```
+
+Regenéralo cuando cambie un loader o un `.xls`. Los tests verifican que el JSON
+coincide registro a registro con los loaders, así que no hay riesgo de deriva.
+
+| Medidor                              | Fuente del mapa (para regenerar)    |
+|--------------------------------------|-------------------------------------|
+| Siemens SMART 7KT0310                | dict en `regmaps.py`                |
+| Carlo Gavazzi WM20/WM30/WM40         | dict en `regmaps.py`                |
+| Schneider NSX / Micrologic LV434000  | dict en `regmaps.py`                |
+| Schneider PM51xx / PM53xx            | `data/PM51xx_…xls`                  |
+| Schneider PM2xxx                     | `data/Public_PM2xxx_…xls`           |
+| ABB M4M 30/32                        | `data/9AKK…M4M Modbus map.xlsx`     |
 
 ## Convenciones de direccionamiento
 

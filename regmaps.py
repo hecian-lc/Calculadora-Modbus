@@ -1,6 +1,9 @@
 import os
 import sys
+import json
 import logging
+from typing import Optional
+
 import xlrd
 import openpyxl
 
@@ -297,67 +300,124 @@ def load_nsx_lv434000() -> RegMap:
     # fmt: on
 
 
-def _normalize_meter_type(meter_type: str) -> str:
-    """Normaliza el nombre del medidor para el lookup."""
-    mt = meter_type.strip().upper().replace(' ', '')
-    # Mapeo de nombres alternativos
-    aliases = {
-        'SIEMENS7KT': 'Siemens 7KT',
-        '7KT': 'Siemens 7KT',
-        'M4M': 'M4M',
-        'ABB': 'M4M',
-    }
-    return aliases.get(mt, meter_type.strip())
+# ── Canónicos: ids estables usados como clave en regmaps.json ────────────────
+CANON_WM20    = 'Gavazzi WM20'
+CANON_7KT     = 'Siemens 7KT'
+CANON_NSX     = 'NSX LV434000'
+CANON_M4M     = 'M4M'
+
+# Todos los medidores soportados (orden estable para la generación del JSON).
+SUPPORTED_METERS: list[str] = (
+    [CANON_WM20, CANON_7KT, CANON_NSX]
+    + list(_PM_SCHNEIDER.keys())
+    + [CANON_M4M]
+)
+
+
+def _canonical_meter(meter_type: str) -> Optional[str]:
+    """Resuelve cualquier alias/variante de nombre al id canónico del medidor,
+    o ``None`` si no está soportado. Es la única lógica de matching de nombres.
+    """
+    mt_upper = meter_type.strip().upper().replace(' ', '')
+    if any(tag in mt_upper for tag in ('WM20', 'WM30', 'WM40', 'GAVAZZI')):
+        return CANON_WM20
+    if 'SIEMENS' in mt_upper or '7KT' in mt_upper:
+        return CANON_7KT
+    if 'NSX' in mt_upper or 'LV434000' in mt_upper or 'MICROLOGIC' in mt_upper:
+        return CANON_NSX
+    for key in _PM_SCHNEIDER:
+        if mt_upper == key.upper():
+            return key
+    if 'M4M' in mt_upper or mt_upper.startswith('ABB'):
+        return CANON_M4M
+    return None
+
+
+def _load_legacy(canonical: str, maps_dir: str) -> RegMap:
+    """Carga el mapa de un medidor canónico desde su fuente original
+    (dict hardcodeado o .xls/.xlsx de fabricante). Es el generador del JSON
+    unificado y el fallback en runtime si el medidor no está en regmaps.json.
+    """
+    if canonical == CANON_WM20:
+        return load_wm20()
+    if canonical == CANON_7KT:
+        return load_siemens_7kt()
+    if canonical == CANON_NSX:
+        return load_nsx_lv434000()
+    if canonical in _PM_SCHNEIDER:
+        filename, device_col = _PM_SCHNEIDER[canonical]
+        filepath = _find_data_file(filename, maps_dir)
+        if not os.path.exists(filepath):
+            log.warning('Mapa de registros ausente para %s: %s', canonical, filepath)
+            return {}
+        try:
+            return load_schneider_xls(filepath, device_col)
+        except Exception:
+            log.exception('Error al cargar el mapa Schneider %s para %s', filepath, canonical)
+            return {}
+    if canonical == CANON_M4M:
+        filepath = _find_data_file(_M4M_FILE, maps_dir)
+        if not os.path.exists(filepath):
+            log.warning('Mapa de registros ausente para %s: %s', canonical, filepath)
+            return {}
+        try:
+            return load_m4m_xlsx(filepath)
+        except Exception:
+            log.exception('Error al cargar el mapa M4M %s para %s', filepath, canonical)
+            return {}
+    return {}
+
+
+# ── Mapa unificado en JSON: {medidor_canónico: {reg: [name, unit, dtype, cat]}} ──
+REGMAPS_JSON = 'regmaps.json'
+_json_cache_by_path: dict[str, dict[str, RegMap]] = {}
+
+
+def _load_regmaps_json(maps_dir: str) -> dict[str, RegMap]:
+    """Carga (y cachea por ruta) ``data/regmaps.json``, convirtiendo claves de
+    registro a int y entradas a tupla. Devuelve {} si no existe o falla.
+    """
+    path = _find_data_file(REGMAPS_JSON, maps_dir)
+    if path in _json_cache_by_path:
+        return _json_cache_by_path[path]
+    if not os.path.exists(path):
+        _json_cache_by_path[path] = {}
+        return {}
+    try:
+        with open(path, encoding='utf-8') as f:
+            raw = json.load(f)
+        parsed: dict[str, RegMap] = {
+            meter: {int(reg): tuple(entry) for reg, entry in regs.items()}
+            for meter, regs in raw.items()
+        }
+    except Exception:
+        log.exception('Error al leer el mapa unificado %s', path)
+        parsed = {}
+    _json_cache_by_path[path] = parsed
+    return parsed
 
 
 def get_reg_map(meter_type: str, maps_dir: str) -> RegMap:
     """
     Carga y retorna el mapa de registros para el tipo de medidor indicado.
-    Retorna dict vacío si el medidor no está soportado o el archivo no se encuentra.
+
+    Fuente primaria: ``data/regmaps.json`` (mapa unificado, generado por
+    ``tools/generate_regmaps.py``). Si el medidor no figura en el JSON, recurre
+    al loader original (dict hardcodeado o .xls). Retorna dict vacío si el
+    medidor no está soportado o no se encuentra ninguna fuente.
     """
-    mt_norm = _normalize_meter_type(meter_type)
-    mt_upper = mt_norm.upper().replace(' ', '')
+    canonical = _canonical_meter(meter_type)
+    if canonical is None:
+        log.warning('Tipo de medidor no soportado: %r', meter_type)
+        return {}
 
-    # Gavazzi WM20 / WM30 / WM40 (hardcoded — datos del manual PDF)
-    if 'WM20' in mt_upper or 'WM30' in mt_upper or 'WM40' in mt_upper or 'GAVAZZI' in mt_upper:
-        return load_wm20()
+    unified = _load_regmaps_json(maps_dir)
+    if canonical in unified:
+        return dict(unified[canonical])   # copia: protege la caché de mutaciones
 
-    # Siemens 7KT (hardcoded — datos del manual 7KT0310)
-    if 'SIEMENS' in mt_upper or '7KT' in mt_upper:
-        return load_siemens_7kt()
-
-    # Schneider NSX / Micrologic LV434000
-    if 'NSX' in mt_upper or 'LV434000' in mt_upper or 'MICROLOGIC' in mt_upper:
-        return load_nsx_lv434000()
-
-    # Buscar en PM Schneider
-    for key, (filename, device_col) in _PM_SCHNEIDER.items():
-        if mt_upper == key.upper():
-            filepath = _find_data_file(filename, maps_dir)
-            if not os.path.exists(filepath):
-                log.warning('Mapa de registros ausente para %s: %s', meter_type, filepath)
-                return {}
-            try:
-                return load_schneider_xls(filepath, device_col)
-            except Exception:
-                log.exception('Error al cargar el mapa Schneider %s para %s',
-                              filepath, meter_type)
-                return {}
-
-    # M4M / ABB
-    if 'M4M' in mt_upper:
-        filepath = _find_data_file(_M4M_FILE, maps_dir)
-        if not os.path.exists(filepath):
-            log.warning('Mapa de registros ausente para %s: %s', meter_type, filepath)
-            return {}
-        try:
-            return load_m4m_xlsx(filepath)
-        except Exception:
-            log.exception('Error al cargar el mapa M4M %s para %s', filepath, meter_type)
-            return {}
-
-    log.warning('Tipo de medidor no soportado: %r', meter_type)
-    return {}
+    log.info('Medidor %r no está en %s; usando el loader original.',
+             canonical, REGMAPS_JSON)
+    return _load_legacy(canonical, maps_dir)
 
 
 def auto_detect_meter(start_addr: int, qty: int) -> str:
