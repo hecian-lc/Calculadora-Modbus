@@ -1,0 +1,33 @@
+# CI con los workflows reutilizables de hecian-lc/.github.
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Los tests cubren el motor (modbus, regmaps, eki_config), no la interfaz
+  # PyQt6. requirements_dev.txt suma lo web y pytest; Qt sin pantalla por si
+  # algún import lo levanta.
+  python:
+    uses: hecian-lc/.github/.github/workflows/ci-python.yml@v1
+    with:
+      python: '3.13'
+      comando_tests: pip install -r requirements_dev.txt && QT_QPA_PLATFORM=offscreen python -m pytest -q
+
+  seguridad:
+    uses: hecian-lc/.github/.github/workflows/seguridad.yml@v1
+    with:
+      auditar_npm: ''
+
+  # Avisa lo que falta para la marca (LICENSE, package.json, firma). Pasar a
+  # estricto: true cuando el repo esté en la marca.
+  marca:
+    uses: hecian-lc/.github/.github/workflows/marca.yml@v1
+    with:
+      estricto: false
